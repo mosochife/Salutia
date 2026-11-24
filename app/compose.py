@@ -1,5 +1,3 @@
-from app.messaging import CHANNELS, analyze_sms, send_batch, skip_reason
-from app.messaging import CHANNELS, analyze_sms, send_batch, skip_reason
 from flask import Blueprint, current_app, flash, redirect, render_template, url_for
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
@@ -7,7 +5,7 @@ from wtforms import SelectField, StringField, TextAreaField
 from wtforms.validators import DataRequired, Length
 
 from app import db
-from app.messaging import CHANNELS, send_batch, skip_reason
+from app.messaging import CHANNELS, analyze_sms, send_batch, skip_reason
 from app.models import Contact, Message, SendLog
 
 bp = Blueprint("messages", __name__, url_prefix="/messages")
@@ -90,17 +88,10 @@ def detail(message_id):
         message=message,
         preview=preview,
         history=history,
-            return render_template(
-        "message_detail.html",
-           return render_template(
-        "message_detail.html",
-        message=message,
-        preview=preview,
-        history=history,
         sms_info=analyze_sms(message.body),
         form=SendForm(),
-    ) 
-  
+    )
+
 
 @bp.route("/<int:message_id>/send", methods=["POST"])
 @login_required
