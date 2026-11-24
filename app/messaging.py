@@ -70,6 +70,39 @@ def log_send(message, contact, channel, result):
 
 
 def send_batch(message, contacts, channel, provider):
+    """Send one message to many contacts and return counts by outcome."""
+    if channel not in CHANNELS:
+        raise ValueError(f"unknown channel: {channel}")
+
+    already_sent = {
+        row.contact_id
+        for row in SendLog.query.filter_by(
+            message_id=message.id, channel=channel, status="sent"
+        )
+    }
+    counts = {"sent": 0, "skipped": 0, "failed": 0, "already_sent": 0}
+    for contact in contacts:
+        if contact.id in already_sent:
+            counts["already_sent"] += 1
+            continue
+        result = send_message(channel, contact, message, provider)
+        counts[result.status] += 1
+        db.session.add(
+            SendLog(
+                message_id=message.id,
+                contact_id=contact.id,
+                channel=channel,
+                status=result.status,
+                sent_at=utcnow() if result.status == "sent" else None,
+                error=None if result.status == "sent" else result.detail,
+            )
+        )
+    if counts["sent"]:
+        message.status = "sent"
+    db.session.commit()
+    return counts
+
+
 def analyze_sms(body: str) -> dict:
     """Estimate Nigerian SMS encoding, part count, and billing warnings."""
     text = body or ""
@@ -107,35 +140,3 @@ def analyze_sms(body: str) -> dict:
         "is_unicode": is_unicode,
         "warnings": warnings,
     }
-
-    """Send one message to many contacts and return counts by outcome."""
-    if channel not in CHANNELS:
-        raise ValueError(f"unknown channel: {channel}")
-
-    already_sent = {
-        row.contact_id
-        for row in SendLog.query.filter_by(
-            message_id=message.id, channel=channel, status="sent"
-        )
-    }
-    counts = {"sent": 0, "skipped": 0, "failed": 0, "already_sent": 0}
-    for contact in contacts:
-        if contact.id in already_sent:
-            counts["already_sent"] += 1
-            continue
-        result = send_message(channel, contact, message, provider)
-        counts[result.status] += 1
-        db.session.add(
-            SendLog(
-                message_id=message.id,
-                contact_id=contact.id,
-                channel=channel,
-                status=result.status,
-                sent_at=utcnow() if result.status == "sent" else None,
-                error=None if result.status == "sent" else result.detail,
-            )
-        )
-    if counts["sent"]:
-        message.status = "sent"
-    db.session.commit()
-    return counts
