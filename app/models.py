@@ -23,14 +23,24 @@ class User(UserMixin, db.Model):
 
 
 class Contact(db.Model):
-    __table_args__ = (db.UniqueConstraint("org_id", "email"),)
+    __table_args__ = (
+        db.UniqueConstraint("org_id", "email"),
+        db.UniqueConstraint("org_id", "phone"),
+        db.CheckConstraint(
+            "email IS NOT NULL OR phone IS NOT NULL",
+            name="ck_contact_has_channel",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     org_id = db.Column(db.Integer, db.ForeignKey("organisation.id"), nullable=False)
     name = db.Column(db.String(120))
-    email = db.Column(db.String(255), nullable=False)
-    consented_at = db.Column(db.DateTime(timezone=True))
-    opted_out_at = db.Column(db.DateTime(timezone=True))
+    email = db.Column(db.String(255))
+    phone = db.Column(db.String(20))
+    email_consented_at = db.Column(db.DateTime(timezone=True))
+    sms_consented_at = db.Column(db.DateTime(timezone=True))
+    email_opted_out_at = db.Column(db.DateTime(timezone=True))
+    sms_opted_out_at = db.Column(db.DateTime(timezone=True))
 
 
 class Message(db.Model):
@@ -44,6 +54,7 @@ class Message(db.Model):
 
 
 class SendLog(db.Model):
+    channel = db.Column(db.String(10), nullable=False)
     id = db.Column(db.Integer, primary_key=True)
     message_id = db.Column(db.Integer, db.ForeignKey("message.id"), nullable=False)
     contact_id = db.Column(db.Integer, db.ForeignKey("contact.id"), nullable=False)

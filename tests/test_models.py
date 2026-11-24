@@ -46,3 +46,28 @@ def test_duplicate_email_in_same_org_is_rejected(app):
     db.session.add(Contact(org_id=a.id, email="ada@example.com"))
     with pytest.raises(IntegrityError):
         db.session.commit()
+
+
+def test_contact_needs_email_or_phone(app):
+    a, _ = make_orgs()
+    db.session.add(Contact(org_id=a.id, name="Nobody"))
+    with pytest.raises(IntegrityError):
+        db.session.commit()
+
+
+def test_phone_only_contacts_are_allowed(app):
+    a, _ = make_orgs()
+    db.session.add(Contact(org_id=a.id, name="Ada", phone="+2348012345678"))
+    db.session.add(Contact(org_id=a.id, name="Bola", phone="+2348098765432"))
+    db.session.commit()
+    assert Contact.query.filter_by(org_id=a.id).count() == 2
+
+
+def test_duplicate_phone_in_same_org_is_rejected(app):
+    a, _ = make_orgs()
+    db.session.add(Contact(org_id=a.id, phone="+2348012345678"))
+    db.session.commit()
+
+    db.session.add(Contact(org_id=a.id, phone="+2348012345678"))
+    with pytest.raises(IntegrityError):
+        db.session.commit()
