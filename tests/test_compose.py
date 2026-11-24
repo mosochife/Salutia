@@ -14,7 +14,7 @@ class TestConfig(Config):
 def client():
     app = create_app(TestConfig)
     with app.app_context():
-        org = Organisation(name="St. Anne's Academy", kind="school")
+        org = Organisation(name="St. Anne's Academy", sender_type="school")
         db.session.add(org)
         db.session.flush()
 
