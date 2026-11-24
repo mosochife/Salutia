@@ -113,3 +113,25 @@ def test_log_send_writes_a_row(app):
     assert row.status == "sent"
     assert row.channel == "email"
     assert row.sent_at is not None
+
+
+def test_analyze_sms_plain_gsm():
+    from app.messaging import analyze_sms
+
+    info = analyze_sms("Resumption is Monday 8am.")
+    assert info["parts"] == 1
+    assert info["limit"] == 160
+    assert info["warnings"] == []
+
+
+def test_analyze_sms_splits_over_160_and_warns_on_emoji():
+    from app.messaging import analyze_sms
+
+    long_info = analyze_sms("A" * 161)
+    assert long_info["parts"] == 2
+    assert len(long_info["warnings"]) == 1
+
+    emoji_info = analyze_sms("Happy New Term 🎉")
+    assert emoji_info["is_unicode"] is True
+    assert emoji_info["limit"] == 70
+    assert len(emoji_info["warnings"]) == 1

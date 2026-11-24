@@ -10,6 +10,33 @@
       {% for e in field.errors %}<br><small>{{ e }}</small>{% endfor %}
     </p>
   {% endfor %}
+  <p id="sms-meter" hidden></p>
   <button type="submit">{{ title }}</button>
 </form>
+
+<script>
+(function () {
+  const body = document.getElementById("body");
+  const meter = document.getElementById("sms-meter");
+  if (!body || !meter) return;
+
+  function updateMeter() {
+    const text = body.value || "";
+    const hasUnicode = /[^\x00-\x7F]/.test(text);
+    const singleLimit = hasUnicode ? 70 : 160;
+    const multiLimit = hasUnicode ? 67 : 153;
+    const len = text.length;
+    const parts = len === 0 ? 0 : (len <= singleLimit ? 1 : Math.ceil(len / multiLimit));
+
+    let msg = `SMS preview: ${len}/${singleLimit} chars (${parts} SMS ${parts === 1 ? "part" : "parts"})`;
+    if (hasUnicode) msg += " — Warning: emoji/non-GSM character reduces limit to 70 chars!";
+    else if (parts > 1) msg += " — Warning: exceeds 160 chars, billed as multiple SMS parts.";
+    meter.textContent = msg;
+    meter.hidden = false;
+  }
+
+  body.addEventListener("input", updateMeter);
+  updateMeter();
+})();
+</script>
 {% endblock %}

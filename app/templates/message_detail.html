@@ -5,7 +5,30 @@
 <h1>{{ message.subject }}</h1>
 {% if message.season %}<p><strong>Season:</strong> {{ message.season }}</p>{% endif %}
 <p><strong>Status:</strong> {{ message.status }}</p>
+<p>
+  <strong>SMS Check:</strong> {{ sms_info.length }}/{{ sms_info.limit }} chars
+  ({{ sms_info.parts }} SMS {{ "part" if sms_info.parts == 1 else "parts" }})
+</p>
+{% if sms_info.warnings %}
+<ul>
+  {% for w in sms_info.warnings %}
+  <li><strong>Warning:</strong> {{ w }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
 <pre>{{ message.body }}</pre>
+<p>
+  <strong>SMS Check:</strong> {{ sms_info.length }}/{{ sms_info.limit }} chars
+  ({{ sms_info.parts }} SMS {{ "part" if sms_info.parts == 1 else "parts" }})
+</p>
+{% if sms_info.warnings %}
+<ul>
+  {% for w in sms_info.warnings %}
+  <li><strong>Warning:</strong> {{ w }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
 
 <h2>Audience Preview</h2>
 <table>

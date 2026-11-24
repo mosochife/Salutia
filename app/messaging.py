@@ -70,6 +70,44 @@ def log_send(message, contact, channel, result):
 
 
 def send_batch(message, contacts, channel, provider):
+def analyze_sms(body: str) -> dict:
+    """Estimate Nigerian SMS encoding, part count, and billing warnings."""
+    text = body or ""
+    non_ascii = sorted({ch for ch in text if ord(ch) > 127})
+    is_unicode = bool(non_ascii)
+
+    if is_unicode:
+        single_limit, multi_limit = 70, 67
+    else:
+        single_limit, multi_limit = 160, 153
+
+    length = len(text)
+    if length == 0:
+        parts = 0
+    elif length <= single_limit:
+        parts = 1
+    else:
+        parts = (length + multi_limit - 1) // multi_limit
+
+    warnings = []
+    if is_unicode:
+        sample = "".join(non_ascii[:5])
+        warnings.append(
+            f"Contains non-GSM characters ({sample}); networks drop the limit from 160 to 70 chars per SMS."
+        )
+    if parts > 1:
+        warnings.append(
+            f"Message is {length} chars and will be billed as {parts} SMS parts per recipient."
+        )
+
+    return {
+        "length": length,
+        "parts": parts,
+        "limit": single_limit,
+        "is_unicode": is_unicode,
+        "warnings": warnings,
+    }
+
     """Send one message to many contacts and return counts by outcome."""
     if channel not in CHANNELS:
         raise ValueError(f"unknown channel: {channel}")
