@@ -1,3 +1,4 @@
+from werkzeug.security import generate_password_hash
 import pytest
 from app import create_app, db
 from app.models import Contact, Message, Organisation, SendLog, User, utcnow
@@ -18,8 +19,7 @@ def client():
         db.session.add(org)
         db.session.flush()
 
-        user = User(org_id=org.id, email="admin@school.ng")
-        user.set_password("secret123")
+        user = User(org_id=org.id, email="admin@school.ng", password_hash=generate_password_hash("secret123"))
         db.session.add(user)
 
         # Contact 1: eligible for SMS only
