@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Messages · Salutia{% endblock %}
+{% block content %}
+<h1>Messages</h1>
+<p><a href="{{ url_for('messages.new') }}">New message</a></p>
+<table>
+  <tr><th>Subject</th><th>Season</th><th>Status</th></tr>
+  {% for m in messages %}
+  <tr>
+    <td><a href="{{ url_for('messages.detail', message_id=m.id) }}">{{ m.subject }}</a></td>
+    <td>{{ m.season or "" }}</td>
+    <td>{{ m.status }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="3">No messages yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

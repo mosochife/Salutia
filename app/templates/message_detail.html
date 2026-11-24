@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ message.subject }} · Salutia{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('messages.index') }}">← All messages</a></p>
+<h1>{{ message.subject }}</h1>
+{% if message.season %}<p><strong>Season:</strong> {{ message.season }}</p>{% endif %}
+<p><strong>Status:</strong> {{ message.status }}</p>
+<pre>{{ message.body }}</pre>
+
+<h2>Audience Preview</h2>
+<table>
+  <tr><th>Channel</th><th>Eligible</th><th>Skipped</th></tr>
+  {% for ch, stats in preview.items() %}
+  <tr>
+    <td>{{ ch }}</td>
+    <td>{{ stats.eligible }}</td>
+    <td>{{ stats.skipped }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Send Now</h2>
+<form method="post" action="{{ url_for('messages.send', message_id=message.id) }}">
+  {{ form.hidden_tag() }}
+  {{ form.channel.label }} {{ form.channel() }}
+  <button type="submit">Send</button>
+</form>
+
+{% if history %}
+<h2>Send History</h2>
+<table>
+  <tr><th>Channel</th><th>Outcome</th><th>Count</th></tr>
+  {% for row in history %}
+  <tr>
+    <td>{{ row.channel }}</td>
+    <td>{{ row.status }}</td>
+    <td>{{ row.n }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endblock %}
