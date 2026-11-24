@@ -135,3 +135,46 @@ def test_can_delete_own_contact(app, school):
         contact_id = Contact.query.one().id
     school.post(f"/contacts/{contact_id}/delete")
     assert count(app) == 0
+
+
+def test_csv_upload_normalizes_nigerian_numbers_and_skips_duplicates(client):
+    import io
+
+    # Log in using the existing fixture's user or create one
+    from app import db
+    from app.models import Contact, Organisation, User
+    from werkzeug.security import generate_password_hash
+
+    with client.application.app_context():
+        org = Organisation(name="Benue Royal Suites", sender_type="hotel")
+        db.session.add(org)
+        db.session.flush()
+        user = User(
+            org_id=org.id,
+            email="manager@hotel.ng",
+            password_hash=generate_password_hash("secret123"),
+        )
+        db.session.add(user)
+        db.session.commit()
+
+    client.post("/login", data={"email": "manager@hotel.ng", "password": "secret123"})
+
+    csv_data = (
+        "name,email,phone\n"
+        "Mrs. Ochanya,,08031234567\n"
+        "Duplicate Phone,,+2348031234567\n"
+        "Mr. Tunde,tunde@example.com,\n"
+        "Invalid Row,,not-a-phone\n"
+    )
+    resp = client.post(
+        "/contacts/upload",
+        data={
+            "csv_file": (io.BytesIO(csv_data.encode("utf-8")), "parents.csv"),
+            "consent": "y",
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b"2 added, 1 duplicates skipped, 1 invalid rows skipped." in resp.data
+    assert b"+2348031234567" in resp.data

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Upload Contacts CSV · Salutia{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('contacts.index') }}">← Back to contacts</a></p>
+<h1>Upload Contacts CSV</h1>
+<p>Upload a CSV with headers: <code>name,email,phone</code>. Nigerian local numbers like <code>08031234567</code> are automatically converted to <code>+2348031234567</code>.</p>
+<form method="post" enctype="multipart/form-data">
+  {{ form.hidden_tag() }}
+  {% for field in form if field.type != "CSRFTokenField" %}
+    <p>
+      {{ field.label }} {{ field() }}
+      {% for e in field.errors %}<br><small>{{ e }}</small>{% endfor %}
+    </p>
+  {% endfor %}
+  <button type="submit">Upload CSV</button>
+</form>
+{% endblock %}

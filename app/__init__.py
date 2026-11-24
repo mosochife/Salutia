@@ -26,9 +26,13 @@ def create_app(config_class=Config):
     from app.auth import bp as auth_bp
     from app.compose import bp as messages_bp
     from app.contacts import bp as contacts_bp
-    from app.messaging import ConsoleProvider
+    from app.messaging import ConsoleProvider, LiveProvider
 
-    app.extensions["message_provider"] = ConsoleProvider()
+    if app.config.get("TESTING"):
+        app.extensions["message_provider"] = ConsoleProvider()
+    else:
+        app.extensions["message_provider"] = LiveProvider(app.config)
+
     app.register_blueprint(auth_bp)
     app.register_blueprint(contacts_bp)
     app.register_blueprint(messages_bp)

@@ -140,3 +140,89 @@ def analyze_sms(body: str) -> dict:
         "is_unicode": is_unicode,
         "warnings": warnings,
     }
+
+
+class LiveProvider:
+    """Sends real emails via Brevo and real Nigerian SMS via Termii."""
+
+    def __init__(self, config):
+        self.brevo_key = config.get("BREVO_API_KEY", "")
+        self.brevo_sender_email = config.get("BREVO_SENDER_EMAIL", "")
+        self.brevo_sender_name = config.get("BREVO_SENDER_NAME", "Salutia")
+        self.termii_key = config.get("TERMII_API_KEY", "")
+        self.termii_sender_id = config.get("TERMII_SENDER_ID", "Salutia")
+        self.termii_channel = config.get("TERMII_CHANNEL", "dnd")
+        self.fallback = ConsoleProvider()
+
+    def send(self, channel, to, subject, body):
+        if channel == "email":
+            if not self.brevo_key or not self.brevo_sender_email:
+                return self.fallback.send(channel, to, subject, body)
+            return self._send_brevo(to, subject, body)
+
+        if channel == "sms":
+            if not self.termii_key:
+                return self.fallback.send(channel, to, subject, body)
+            return self._send_termii(to, body)
+
+        raise ValueError(f"unknown channel: {channel}")
+
+    def _send_brevo(self, to_email, subject, body):
+        import json
+        import urllib.request
+
+        payload = json.dumps(
+            {
+                "sender": {
+                    "name": self.brevo_sender_name,
+                    "email": self.brevo_sender_email,
+                },
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "textContent": body,
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://brevo.com",
+            data=payload,
+            headers={
+                "api-key": self.brevo_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            if 200 <= resp.status < 300:
+                return SendResult("sent")
+            return SendResult("failed", f"Brevo HTTP {resp.status}")
+
+    def _send_termii(self, to_phone, body):
+        import json
+        import urllib.request
+
+        # Termii expects international format without the leading '+' (e.g. 2348012345678)
+        msisdn = to_phone.lstrip("+")
+        payload = json.dumps(
+            {
+                "to": msisdn,
+                "from": self.termii_sender_id,
+                "sms": body,
+                "type": "plain",
+                "channel": self.termii_channel,
+                "api_key": self.termii_key,
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://termii.com",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("code") == "ok" or resp.status == 200:
+                return SendResult("sent")
+            return SendResult("failed", data.get("message", "Termii send failed"))

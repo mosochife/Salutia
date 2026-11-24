@@ -2,6 +2,7 @@
 {% block title %}Contacts · Salutia{% endblock %}
 {% block content %}
 <h1>Contacts</h1>
+<p><a href="{{ url_for('contacts.upload') }}">Upload contacts from CSV</a></p>
 <form method="post">
   {{ form.hidden_tag() }}
   {% for field in form if field.type != "CSRFTokenField" %}
