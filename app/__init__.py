@@ -24,8 +24,10 @@ def create_app(config_class=Config):
 
     from app import models  # noqa: F401
     from app.auth import bp as auth_bp
+    from app.contacts import bp as contacts_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(contacts_bp)
 
     with app.app_context():
         db.create_all()
