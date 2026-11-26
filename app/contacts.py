@@ -34,9 +34,9 @@ def normalize_ng_phone(value):
     phone = clean_phone(value)
     if not phone:
         return None
-    if re.fullmatch(r"^0\d{8}$", phone):
+    if re.fullmatch(r"^0\d{10}$", phone):
         return "+234" + phone[1:]
-    if re.fullmatch(r"^234\d{8}$", phone):
+    if re.fullmatch(r"^234\d{10}$", phone):
         return "+" + phone
     return phone
 
