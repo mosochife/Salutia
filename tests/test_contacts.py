@@ -137,7 +137,8 @@ def test_can_delete_own_contact(app, school):
     assert count(app) == 0
 
 
-def test_csv_upload_normalizes_nigerian_numbers_and_skips_duplicates(client):
+def test_csv_upload_normalizes_nigerian_numbers_and_skips_duplicates(app):
+    client = app.test_client()
     import io
 
     # Log in using the existing fixture's user or create one
@@ -145,7 +146,7 @@ def test_csv_upload_normalizes_nigerian_numbers_and_skips_duplicates(client):
     from app.models import Contact, Organisation, User
     from werkzeug.security import generate_password_hash
 
-    with client.application.app_context():
+    with app.app_context():
         org = Organisation(name="Benue Royal Suites", sender_type="hotel")
         db.session.add(org)
         db.session.flush()

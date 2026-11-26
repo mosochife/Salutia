@@ -45,7 +45,7 @@ def skip_reason(channel, contact):
 
 def render_for_contact(text: str, contact, org_name: str = "") -> str:
     """Replace {name} and {org} placeholders safely without crashing on extra braces."""
-    recipient = (contact.name or "").strip() or "Valued Guest"
+    recipient = (getattr(contact, "name", None) or "").strip() or "Valued Guest"
     result = (text or "").replace("{name}", recipient)
     if org_name:
         result = result.replace("{org}", org_name)
