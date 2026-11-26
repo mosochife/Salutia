@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Salutia · Greetings for Nigerian Schools & Hotels{% endblock %}
+{% block content %}
+<h1>Welcome to Salutia</h1>
+<p>Send seasonal greetings, resumption notices, and guest offers via <strong>SMS</strong> and <strong>Email</strong> with built-in consent tracking and Nigerian SMS length guardrails.</p>
+<p>
+  <a href="{{ url_for('auth.signup') }}">Create School or Hotel Account</a> ·
+  <a href="{{ url_for('auth.login') }}">Log In</a>
+</p>
+{% endblock %}

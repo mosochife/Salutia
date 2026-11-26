@@ -1,14 +1,42 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
 from wtforms import SelectField, StringField, TextAreaField
 from wtforms.validators import DataRequired, Length
 
 from app import db
+from app.contacts import make_unsubscribe_token
 from app.messaging import CHANNELS, analyze_sms, send_batch, skip_reason
-from app.models import Contact, Message, SendLog
+from app.models import Contact, Message, Organisation, SendLog
 
 bp = Blueprint("messages", __name__, url_prefix="/messages")
+
+STARTER_TEMPLATES = {
+    "resumption": {
+        "label": "School: New Term Resumption",
+        "season": "New Term",
+        "subject": "Welcome Back to {org}!",
+        "body": "Dear {name}, {org} welcomes our students back for the new term! Classes resume Monday at 8:00am prompt.",
+    },
+    "pta": {
+        "label": "School: PTA Meeting Notice",
+        "season": "PTA",
+        "subject": "PTA Meeting Reminder - {org}",
+        "body": "Dear {name}, reminder of {org} PTA meeting this Saturday at 10:00am in the school hall. Your presence matters.",
+    },
+    "hotel_welcome": {
+        "label": "Hotel: Guest Welcome & Offer",
+        "season": "Hospitality",
+        "subject": "Warm Greetings from {org}",
+        "body": "Dear {name}, thank you for choosing {org}! Enjoy 10% off your next stay or dinner with us this weekend.",
+    },
+    "festive": {
+        "label": "Seasonal: Festive / Holiday Wishes",
+        "season": "Seasonal",
+        "subject": "Season's Greetings from {org}",
+        "body": "Dear {name}, everyone at {org} wishes you and your family joy, peace, and prosperity this season!",
+    },
+}
 
 
 class MessageForm(FlaskForm):
@@ -43,13 +71,21 @@ def index():
         .order_by(Message.id.desc())
         .all()
     )
-    return render_template("messages.html", messages=messages)
+    return render_template("messages.html", messages=messages, templates=STARTER_TEMPLATES)
 
 
 @bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new():
     form = MessageForm()
+    if request.method == "GET":
+        tpl_key = request.args.get("template")
+        if tpl_key in STARTER_TEMPLATES:
+            tpl = STARTER_TEMPLATES[tpl_key]
+            form.subject.data = tpl["subject"]
+            form.body.data = tpl["body"]
+            form.season.data = tpl["season"]
+
     if form.validate_on_submit():
         message = Message(
             org_id=current_user.org_id,
@@ -100,7 +136,21 @@ def send(message_id):
     form = SendForm()
     if form.validate_on_submit():
         provider = current_app.extensions["message_provider"]
-        counts = send_batch(message, own_contacts(), form.channel.data, provider)
+        org = db.session.get(Organisation, current_user.org_id)
+        org_name = org.name if org else ""
+
+        def unsub_url(contact):
+            token = make_unsubscribe_token(contact.id)
+            return url_for("contacts.unsubscribe", token=token, _external=True)
+
+        counts = send_batch(
+            message,
+            own_contacts(),
+            form.channel.data,
+            provider,
+            org_name=org_name,
+            unsubscribe_url_fn=unsub_url,
+        )
         flash(
             f"Sent {counts['sent']}, skipped {counts['skipped']}, "
             f"failed {counts['failed']}, already sent {counts['already_sent']}."

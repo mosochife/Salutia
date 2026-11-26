@@ -43,13 +43,28 @@ def skip_reason(channel, contact):
     return None
 
 
-def send_message(channel, contact, message, provider):
+def render_for_contact(text: str, contact, org_name: str = "") -> str:
+    """Replace {name} and {org} placeholders safely without crashing on extra braces."""
+    recipient = (contact.name or "").strip() or "Valued Guest"
+    result = (text or "").replace("{name}", recipient)
+    if org_name:
+        result = result.replace("{org}", org_name)
+    return result
+
+
+def send_message(channel, contact, message, provider, org_name: str = "", unsubscribe_url: str = ""):
     reason = skip_reason(channel, contact)
     if reason:
         return SendResult("skipped", reason)
+
+    subject = render_for_contact(message.subject, contact, org_name)
+    body = render_for_contact(message.body, contact, org_name)
+    if channel == "email" and unsubscribe_url:
+        body = f"{body}\n\n---\nTo stop receiving these greetings, unsubscribe here: {unsubscribe_url}"
+
     try:
         return provider.send(
-            channel, address_for(channel, contact), message.subject, message.body
+            channel, address_for(channel, contact), subject, body
         )
     except Exception as exc:  # one bad send must not crash a whole batch
         return SendResult("failed", str(exc))
@@ -69,7 +84,7 @@ def log_send(message, contact, channel, result):
     return row
 
 
-def send_batch(message, contacts, channel, provider):
+def send_batch(message, contacts, channel, provider, org_name: str = "", unsubscribe_url_fn=None):
     """Send one message to many contacts and return counts by outcome."""
     if channel not in CHANNELS:
         raise ValueError(f"unknown channel: {channel}")
@@ -85,7 +100,15 @@ def send_batch(message, contacts, channel, provider):
         if contact.id in already_sent:
             counts["already_sent"] += 1
             continue
-        result = send_message(channel, contact, message, provider)
+        unsub_url = unsubscribe_url_fn(contact) if (channel == "email" and unsubscribe_url_fn) else ""
+        result = send_message(
+            channel,
+            contact,
+            message,
+            provider,
+            org_name=org_name,
+            unsubscribe_url=unsub_url,
+        )
         counts[result.status] += 1
         db.session.add(
             SendLog(
@@ -202,7 +225,6 @@ class LiveProvider:
         import json
         import urllib.request
 
-        # Termii expects international format without the leading '+' (e.g. 2348012345678)
         msisdn = to_phone.lstrip("+")
         payload = json.dumps(
             {

@@ -14,21 +14,34 @@
   <button type="submit">Add contact</button>
 </form>
 <table>
-  <tr><th>Name</th><th>Email</th><th>Phone</th><th></th></tr>
+  <tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr>
   {% for c in contacts %}
   <tr>
     <td>{{ c.name or "" }}</td>
     <td>{{ c.email or "" }}</td>
     <td>{{ c.phone or "" }}</td>
     <td>
-      <form method="post" action="{{ url_for('contacts.delete', contact_id=c.id) }}">
-        {{ delete_form.hidden_tag() }}
+      {% if c.sms_opted_out_at or c.email_opted_out_at %}
+        Opted out
+      {% else %}
+        Active
+      {% endif %}
+    </td>
+    <td>
+      <form method="post" action="{{ url_for('contacts.toggle_optout', contact_id=c.id) }}" style="display:inline;">
+        {{ action_form.hidden_tag() }}
+        <button type="submit">
+          {{ "Re-subscribe" if (c.sms_opted_out_at or c.email_opted_out_at) else "Opt out" }}
+        </button>
+      </form>
+      <form method="post" action="{{ url_for('contacts.delete', contact_id=c.id) }}" style="display:inline;">
+        {{ action_form.hidden_tag() }}
         <button type="submit">Delete</button>
       </form>
     </td>
   </tr>
   {% else %}
-  <tr><td colspan="4">No contacts yet.</td></tr>
+  <tr><td colspan="5">No contacts yet.</td></tr>
   {% endfor %}
 </table>
 <p><a href="{{ url_for('auth.dashboard') }}">Back to dashboard</a></p>

@@ -2,7 +2,14 @@
 {% block title %}Messages · Salutia{% endblock %}
 {% block content %}
 <h1>Messages</h1>
-<p><a href="{{ url_for('messages.new') }}">New message</a></p>
+<p><a href="{{ url_for('messages.new') }}">Blank message</a></p>
+
+<p><strong>Quick Starter Templates:</strong>
+{% for key, tpl in templates.items() %}
+  <a href="{{ url_for('messages.new', template=key) }}">{{ tpl.label }}</a>{% if not loop.last %} · {% endif %}
+{% endfor %}
+</p>
+
 <table>
   <tr><th>Subject</th><th>Season</th><th>Status</th></tr>
   {% for m in messages %}
@@ -15,4 +22,5 @@
   <tr><td colspan="3">No messages yet.</td></tr>
   {% endfor %}
 </table>
+<p><a href="{{ url_for('auth.dashboard') }}">Back to dashboard</a></p>
 {% endblock %}

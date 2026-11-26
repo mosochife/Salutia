@@ -87,3 +87,46 @@ def test_compose_preview_and_send_batch(client):
     with app.app_context():
         assert len(app.extensions["message_provider"].outbox) == 1
         assert SendLog.query.count() == 3
+
+
+def test_personalization_and_one_click_unsubscribe(client):
+    test_client, app = client
+
+    with app.app_context():
+        c1 = Contact.query.filter_by(name="Mrs. Ochanya").first()
+        c1.email = "ochanya@example.com"
+        c1.email_consented_at = utcnow()
+        db.session.commit()
+
+    # Create a personalized message with {name} and {org}
+    test_client.post(
+        "/messages/new",
+        data={
+            "subject": "Hello {name}",
+            "body": "Welcome {name} to {org}!",
+            "season": "Term 1",
+        },
+    )
+    with app.app_context():
+        msg = Message.query.order_by(Message.id.desc()).first()
+        msg_id = msg.id
+
+    # Send email and check personalized text + unsubscribe link
+    test_client.post(f"/messages/{msg_id}/send", data={"channel": "email"})
+    with app.app_context():
+        sent_item = app.extensions["message_provider"].outbox[-1]
+        assert sent_item["subject"] == "Hello Mrs. Ochanya"
+        assert "Welcome Mrs. Ochanya to St. Anne's Academy!" in sent_item["body"]
+        assert "/contacts/unsubscribe/" in sent_item["body"]
+
+        # Extract unsubscribe URL and visit it as a recipient
+        unsub_url = sent_item["body"].split("unsubscribe here: ")[1].strip()
+        path = unsub_url.replace("http://localhost", "")
+
+    resp = test_client.get(path)
+    assert resp.status_code == 200
+    assert b"You are unsubscribed" in resp.data
+
+    with app.app_context():
+        c1 = Contact.query.filter_by(name="Mrs. Ochanya").first()
+        assert c1.email_opted_out_at is not None

@@ -2,10 +2,11 @@ import csv
 import io
 import re
 
-from flask import Blueprint, flash, redirect, render_template, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, url_for
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
+from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy.exc import IntegrityError
 from wtforms import BooleanField, StringField
 from wtforms.validators import (
@@ -17,7 +18,7 @@ from wtforms.validators import (
 )
 
 from app import db
-from app.models import Contact, utcnow
+from app.models import Contact, Organisation, utcnow
 
 bp = Blueprint("contacts", __name__, url_prefix="/contacts")
 
@@ -33,11 +34,25 @@ def normalize_ng_phone(value):
     phone = clean_phone(value)
     if not phone:
         return None
-    if re.fullmatch(r"^0[789][01]\d{8}$", phone):
+    if re.fullmatch(r"^0\d{8}$", phone):
         return "+234" + phone[1:]
-    if re.fullmatch(r"^234[789][01]\d{8}$", phone):
+    if re.fullmatch(r"^234\d{8}$", phone):
         return "+" + phone
     return phone
+
+
+def make_unsubscribe_token(contact_id: int) -> str:
+    s = URLSafeSerializer(current_app.config["SECRET_KEY"], salt="salutia-unsub")
+    return s.dumps({"contact_id": contact_id})
+
+
+def verify_unsubscribe_token(token: str):
+    s = URLSafeSerializer(current_app.config["SECRET_KEY"], salt="salutia-unsub")
+    try:
+        data = s.loads(token)
+        return data.get("contact_id")
+    except BadSignature:
+        return None
 
 
 class ContactForm(FlaskForm):
@@ -73,7 +88,7 @@ class CsvUploadForm(FlaskForm):
     )
 
 
-class DeleteForm(FlaskForm):
+class ActionForm(FlaskForm):
     pass
 
 
@@ -108,7 +123,7 @@ def index():
         Contact.query.filter_by(org_id=current_user.org_id).order_by(Contact.id).all()
     )
     return render_template(
-        "contacts.html", form=form, contacts=contacts, delete_form=DeleteForm()
+        "contacts.html", form=form, contacts=contacts, action_form=ActionForm()
     )
 
 
@@ -160,13 +175,51 @@ def upload():
     return render_template("upload_contacts.html", form=form)
 
 
+@bp.route("/<int:contact_id>/optout", methods=["POST"])
+@login_required
+def toggle_optout(contact_id):
+    contact = Contact.query.filter_by(
+        id=contact_id, org_id=current_user.org_id
+    ).first_or_404()
+    if ActionForm().validate_on_submit():
+        now = utcnow()
+        if contact.sms_opted_out_at or contact.email_opted_out_at:
+            contact.sms_opted_out_at = None
+            contact.email_opted_out_at = None
+            flash(f"Re-subscribed {contact.name or contact.phone or contact.email}.")
+        else:
+            if contact.phone:
+                contact.sms_opted_out_at = now
+            if contact.email:
+                contact.email_opted_out_at = now
+            flash(f"Opted out {contact.name or contact.phone or contact.email}.")
+        db.session.commit()
+    return redirect(url_for("contacts.index"))
+
+
+@bp.route("/unsubscribe/<token>", methods=["GET"])
+def unsubscribe(token):
+    contact_id = verify_unsubscribe_token(token)
+    if not contact_id:
+        return "Invalid or expired unsubscribe link.", 400
+    contact = db.session.get(Contact, contact_id)
+    if not contact:
+        return "Contact not found.", 404
+    if not contact.email_opted_out_at:
+        contact.email_opted_out_at = utcnow()
+        db.session.commit()
+    org = db.session.get(Organisation, contact.org_id)
+    org_name = org.name if org else "Salutia"
+    return render_template("unsubscribed.html", contact=contact, org_name=org_name)
+
+
 @bp.route("/<int:contact_id>/delete", methods=["POST"])
 @login_required
 def delete(contact_id):
     contact = Contact.query.filter_by(
         id=contact_id, org_id=current_user.org_id
     ).first_or_404()
-    if DeleteForm().validate_on_submit():
+    if ActionForm().validate_on_submit():
         db.session.delete(contact)
         db.session.commit()
     return redirect(url_for("contacts.index"))

@@ -1,5 +1,5 @@
-from flask import Flask
-from flask_login import LoginManager
+from flask import Flask, redirect, render_template, url_for
+from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 
 from config import Config
@@ -42,6 +42,8 @@ def create_app(config_class=Config):
 
     @app.route("/")
     def home():
-        return "Salutia is running"
+        if current_user.is_authenticated:
+            return redirect(url_for("auth.dashboard"))
+        return render_template("home.html")
 
     return app
